@@ -99,10 +99,8 @@ def test(args, restorer, embedder, device, epoch=-1):
                 
                 endtime1 = time.time()
 
-                # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
-                #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
                 imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
-                    + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', value_range=(0, 1))
+                    + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
             psnr_1 += tensor_metric(hq, out_1, 'PSNR', data_range=1)
             ssim_1 += tensor_metric(hq, out_1, 'SSIM', data_range=1)
             psnr_2 += tensor_metric(hq, out_2, 'PSNR', data_range=1)

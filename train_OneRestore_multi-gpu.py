@@ -109,8 +109,10 @@ def test(args, restorer, embedder, device, epoch=-1):
                 
                 endtime1 = time.time()
 
+                # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
+                #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
                 imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
-                    + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
+                    + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', value_range=(0, 1))
                 # due to the vision problem, you can replace above line by
                 # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
                 #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png')

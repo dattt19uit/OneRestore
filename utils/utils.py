@@ -8,7 +8,7 @@ from skimage.metrics import structural_similarity as compare_ssim
 import pandas as pd
 
 from model.OneRestore import OneRestore
-from model.Embedder import Embedder
+from model.Embedder import Embedder, HybridEmbedder
 
 def load_embedder_ckpt(device, freeze_model=False, ckpt_name=None,
                                   combine_type = ['clear', 'low', 'haze', 'rain', 'snow',\
@@ -28,6 +28,31 @@ def load_embedder_ckpt(device, freeze_model=False, ckpt_name=None,
     else:
         print('==> Initialize Embedder model.')
         model = Embedder(combine_type)
+        model.to("cuda" if torch.cuda.is_available() else "cpu")
+
+    if freeze_model:
+        freeze(model)
+
+    return model
+
+def load_hybrid_embedder_ckpt(device, freeze_model=False, ckpt_name=None,
+                                  combine_type = ['clear', 'low', 'haze', 'rain', 'snow',\
+                                            'low_haze', 'low_rain', 'low_snow', 'haze_rain',\
+                                                    'haze_snow', 'low_haze_rain', 'low_haze_snow']):
+    if ckpt_name != None:
+        if torch.cuda.is_available():
+            model_info = torch.load(ckpt_name)
+        else:
+            model_info = torch.load(ckpt_name, map_location=torch.device('cpu'))
+
+        print('==> loading existing Embedder model:', ckpt_name)
+        model = HybridEmbedder(combine_type)
+        model.load_state_dict(model_info)
+        model.to("cuda" if torch.cuda.is_available() else "cpu")
+
+    else:
+        print('==> Initialize Embedder model.')
+        model = HybridEmbedder(combine_type)
         model.to("cuda" if torch.cuda.is_available() else "cpu")
 
     if freeze_model:
@@ -57,6 +82,43 @@ def load_restore_ckpt(device, freeze_model=False, ckpt_name=None):
     return model
 
 def load_restore_ckpt_with_optim(device, local_rank=None, freeze_model=False, ckpt_name=None, lr=None):
+    if ckpt_name != None:
+        if torch.cuda.is_available():
+            model_info = torch.load(ckpt_name)
+        else:
+            model_info = torch.load(ckpt_name, map_location=torch.device('cpu'))
+
+        print('==> loading existing OneRestore model:', ckpt_name)
+        model = OneRestore().to("cuda" if torch.cuda.is_available() else "cpu")
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr) if lr != None else None
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True) if local_rank != None else model
+
+        if local_rank != None:
+            model.load_state_dict(model_info['state_dict'])
+        else:
+            weights_dict = {}
+            for k, v in model_info['state_dict'].items():
+                new_k = k.replace('module.', '') if 'module' in k else k
+                weights_dict[new_k] = v
+            model.load_state_dict(weights_dict)
+        optimizer = torch.optim.Adam(model.parameters())
+        optimizer.load_state_dict(model_info['optimizer'])
+        cur_epoch = model_info['epoch']
+    else:
+        print('==> Initialize OneRestore model.')
+        model = OneRestore().to("cuda" if torch.cuda.is_available() else "cpu")
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True) if local_rank != None else torch.nn.DataParallel(model)
+        cur_epoch = 0
+
+    if freeze_model:
+        freeze(model)
+    total = sum([param.nelement() for param in model.parameters()])
+    print("Number of OneRestore parameter: %.2fM" % (total/1e6))
+
+    return model, optimizer, cur_epoch
+
+def load_restore_ckpt_with_optim_for_hybrid(device, local_rank=None, freeze_model=False, ckpt_name=None, lr=None):
     if ckpt_name != None:
         if torch.cuda.is_available():
             model_info = torch.load(ckpt_name)
@@ -124,6 +186,56 @@ def load_embedder_ckpt_with_optim(device, args, combine_type = ['clear', 'low', 
         except:
             print('Pre-trained model loading error!')
     return embedder, optimizer, cur_epoch, device
+
+def load_hybrid_embedder_ckpt_with_optim(
+    device, 
+    args, 
+    combine_type=[
+        'clear', 'low', 'haze', 'rain', 'snow',
+        'low_haze', 'low_rain', 'low_snow',
+        'haze_rain', 'haze_snow', 'low_haze_rain', 'low_haze_snow'
+    ]
+):
+    print('Init HybridEmbedder')
+
+    # seed
+    if args.seed == -1:
+        args.seed = np.random.randint(1, 10000)
+    seed = args.seed
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    print('Training hybrid embedder seed:', seed)
+
+    # chọn device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # khởi tạo HybridEmbedder
+    embedder = HybridEmbedder(combine_type).to("cuda" if torch.cuda.is_available() else "cpu")
+
+    # load checkpoint nếu có
+    if args.pre_weight == '':
+        optimizer = torch.optim.Adam(embedder.parameters(), lr=args.lr)
+        cur_epoch = 1
+    else:
+        try:
+            ckpt_path = f"{args.check_dir}/{args.pre_weight}"
+            if torch.cuda.is_available():
+                embedder_info = torch.load(ckpt_path)
+            else:
+                embedder_info = torch.load(ckpt_path, map_location=torch.device('cpu'))
+
+            embedder.load_state_dict(embedder_info['state_dict'])
+            optimizer = torch.optim.Adam(embedder.parameters(), lr=args.lr)
+            optimizer.load_state_dict(embedder_info['optimizer'])
+            cur_epoch = embedder_info['epoch'] + 1
+            print(f"Loaded checkpoint from {ckpt_path}, resume at epoch {cur_epoch}")
+        except Exception as e:
+            print('Pre-trained HybridEmbedder loading error:', str(e))
+            optimizer = torch.optim.Adam(embedder.parameters(), lr=args.lr)
+            cur_epoch = 1
+
+    return embedder, optimizer, cur_epoch, device
+
 
 def freeze_text_embedder(m):
     """Freezes module m.

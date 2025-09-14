@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from utils.utils_word_embedding import initialize_wordembedding_matrix
+from transformers import AutoTokenizer, AutoModel
 
 from huggingface_hub import PyTorchModelHubMixin
 
@@ -145,6 +146,102 @@ class Embedder(nn.Module):
         }
 
         return out
+    
+class HybridEmbedder(Embedder):
+    """
+    Extension of Embedder:
+    - Giữ nguyên static embedding (taxonomy).
+    - Thêm dynamic embedding từ LLM (free-text).
+    - Kết hợp (fusion) static + dynamic.
+    """
+    def __init__(self,
+                 type_name,
+                 feat_dim=512,
+                 mid_dim=1024,
+                 out_dim=324,
+                 drop_rate=0.35,
+                 cosine_cls_temp=0.05,
+                 wordembs='glove',
+                 extractor_name='resnet18',
+                 dynamic_text_model="sentence-transformers/all-MiniLM-L6-v2"):
+        super().__init__(type_name,
+                         feat_dim,
+                         mid_dim,
+                         out_dim,
+                         drop_rate,
+                         cosine_cls_temp,
+                         wordembs,
+                         extractor_name)
+
+        # Dynamic text encoder (pretrained LLM)
+        self.tokenizer = AutoTokenizer.from_pretrained(dynamic_text_model)
+        self.text_encoder = AutoModel.from_pretrained(dynamic_text_model)
+
+        # Projection để map LLM embedding -> cùng dim với static out_dim
+        self.dynamic_proj = nn.Linear(self.text_encoder.config.hidden_size, self.out_dim)
+
+    def encode_dynamic_text(self, texts):
+        """
+        Encode text mô tả tự do từ LLM (caption mô tả degradation).
+        """
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        tokens = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt").to(device)
+        outputs = self.text_encoder(**tokens)
+        text_emb = outputs.last_hidden_state[:, 0, :]  # CLS token
+        return self.dynamic_proj(text_emb)
+
+    def train_forward(self, batch, dynamic_texts=None, fusion="mean"):
+        """
+        Training với optional dynamic text.
+        fusion: "mean", "concat", hoặc "static_only"
+        """
+        scene, img = batch[0], self.transform(batch[1])
+        bs = img.shape[0]
+
+        # --- Static embedding
+        scene_emb = self.embedder(self.train_type)
+        static_weight = self.mlp(scene_emb)
+
+        # --- Dynamic embedding
+        if dynamic_texts is not None:
+            dyn_weight = self.encode_dynamic_text(dynamic_texts)
+            if fusion == "mean":
+                scene_weight = (static_weight + dyn_weight) / 2
+            elif fusion == "concat":
+                # concat rồi linear để về out_dim
+                concat = torch.cat([static_weight, dyn_weight], dim=-1)
+                fusion_layer = nn.Linear(concat.size(-1), self.out_dim).to(concat.device)
+                scene_weight = fusion_layer(concat)
+            else:  # fallback: chỉ dùng static
+                scene_weight = static_weight
+        else:
+            scene_weight = static_weight
+
+        # --- Image embedding
+        img = self.feat_extractor(img)[0]
+        img = self.img_embedder(img)
+        img = self.img_avg_pool(img).squeeze(3).squeeze(2)
+        img = self.img_final(img)
+
+        # --- Classify
+        pred = self.classifier(img, scene_weight)
+        label_loss = F.cross_entropy(pred, scene)
+        pred = torch.max(pred, dim=1)[1]
+        type_pred = self.train_type[pred]
+        correct_type = (type_pred == scene)
+
+        return {
+            'loss_total': label_loss,
+            'acc_type': torch.div(correct_type.sum(), float(bs)),
+        }
+
+    def forward(self, x, mode='image_encoder', dynamic_texts=None, fusion="mean"):
+        if mode == 'train':
+            return self.train_forward(x, dynamic_texts=dynamic_texts, fusion=fusion)
+        elif mode == 'dynamic_text':
+            return self.encode_dynamic_text(x)
+        else:
+            return super().forward(x, mode)
     
     def image_encoder_forward(self, batch):
         img = self.transform(batch)

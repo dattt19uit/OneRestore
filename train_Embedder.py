@@ -1,7 +1,7 @@
 import argparse, os, torch, time
 import torch.optim
 
-from utils.utils import load_embedder_ckpt_with_optim, adjust_learning_rate, freeze_text_embedder, AverageMeter
+from utils.utils import load_embedder_ckpt_with_optim, load_hybrid_embedder_ckpt_with_optim, adjust_learning_rate, freeze_text_embedder, AverageMeter
 from utils.utils_data import init_embedding_data
 
 
@@ -99,6 +99,8 @@ if __name__ == "__main__":
     os.makedirs(args.check_dir,exist_ok=True)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    embedder, optimizer, cur_epoch, device = load_embedder_ckpt_with_optim(device, args)
+    # embedder, optimizer, cur_epoch, device = load_embedder_ckpt_with_optim(device, args)
+    embedder, optimizer, cur_epoch, device = load_hybrid_embedder_ckpt_with_optim(device, args)
+
     trainloader, testloader = init_embedding_data(args, 'train')
     train_embedding(cur_epoch, embedder, optimizer, trainloader, testloader, device, args)

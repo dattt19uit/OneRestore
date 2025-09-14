@@ -1,6 +1,6 @@
 import torch, argparse
 from model.OneRestore import OneRestore
-from model.Embedder import Embedder
+from model.Embedder import Embedder, HybridEmbedder
 
 parser = argparse.ArgumentParser()
 
@@ -23,7 +23,8 @@ elif args.type == 'Embedder':
     combine_type = ['clear', 'low', 'haze', 'rain', 'snow',\
                     'low_haze', 'low_rain', 'low_snow', 'haze_rain',\
                         'haze_snow', 'low_haze_rain', 'low_haze_snow']
-    embedder = Embedder(combine_type).to("cuda" if torch.cuda.is_available() else "cpu")
+    # embedder = Embedder(combine_type).to("cuda" if torch.cuda.is_available() else "cpu")
+    embedder = HybridEmbedder(combine_type).to("cuda" if torch.cuda.is_available() else "cpu")
     embedder_info = torch.load(args.input_file)
     embedder.load_state_dict(embedder_info['state_dict'])
     torch.save(embedder.state_dict(), args.output_file)

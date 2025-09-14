@@ -5,7 +5,7 @@ from torchvision.utils import save_image as imwrite
 import numpy as np
 from torchvision import transforms
 from makedataset import Dataset
-from utils.utils import print_args, load_restore_ckpt_with_optim, load_embedder_ckpt, adjust_learning_rate, data_process, tensor_metric, load_excel, save_checkpoint
+from utils.utils import print_args, load_restore_ckpt_with_optim, load_hybrid_embedder_ckpt, load_embedder_ckpt, adjust_learning_rate, data_process, tensor_metric, load_excel, save_checkpoint
 from model.loss import Total_loss
 
 from PIL import Image
@@ -21,7 +21,9 @@ def main(args):
 
     print('> Model Initialization...')
 
-    embedder = load_embedder_ckpt(device, freeze_model=True, ckpt_name=args.embedder_model_path)
+    # embedder = load_embedder_ckpt(device, freeze_model=True, ckpt_name=args.embedder_model_path)
+    embedder = load_hybrid_embedder_ckpt(device, freeze_model=True, ckpt_name=args.embedder_model_path)
+
     restorer, optimizer, cur_epoch = load_restore_ckpt_with_optim(device, freeze_model=False, ckpt_name=args.restore_model_path, lr=args.lr)
     loss = Total_loss(args)
     

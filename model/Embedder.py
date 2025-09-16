@@ -1,10 +1,14 @@
 import numpy as np
-import torch, torchvision
+import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from utils.utils_word_embedding import initialize_wordembedding_matrix
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, BlipProcessor, BlipForConditionalGeneration
+import logging
+import time
+from PIL import Image
 
 from huggingface_hub import PyTorchModelHubMixin
 
@@ -153,9 +157,12 @@ class HybridEmbedder(Embedder):
     - Giữ nguyên static embedding (taxonomy).
     - Thêm dynamic embedding từ LLM (free-text).
     - Kết hợp (fusion) static + dynamic.
+    - Bổ sung: Sử dụng VLM (BLIP) để generate detailed description về degradation từ image,
+      hỗ trợ static embedding bằng cách mô tả chi tiết features của 12 loại degradations.
+      Sau đó, tính vector trung bình static + dynamic để tạo enhanced text embedding sets.
     """
     def __init__(self,
-                 type_name,
+                 type_name,  # Giả sử có 12 loại degradations, bao gồm single và composite
                  feat_dim=512,
                  mid_dim=1024,
                  out_dim=324,
@@ -163,7 +170,8 @@ class HybridEmbedder(Embedder):
                  cosine_cls_temp=0.05,
                  wordembs='glove',
                  extractor_name='resnet18',
-                 dynamic_text_model="sentence-transformers/all-MiniLM-L6-v2"):
+                 dynamic_text_model="sentence-transformers/all-MiniLM-L6-v2",
+                 vlm_model_name="Salesforce/blip-image-captioning-base"):
         super().__init__(type_name,
                          feat_dim,
                          mid_dim,
@@ -173,18 +181,48 @@ class HybridEmbedder(Embedder):
                          wordembs,
                          extractor_name)
 
-        # Dynamic text encoder (pretrained LLM)
+        # Dynamic text encoder (pretrained LLM for embedding)
         self.tokenizer = AutoTokenizer.from_pretrained(dynamic_text_model)
         self.text_encoder = AutoModel.from_pretrained(dynamic_text_model)
 
         # Projection để map LLM embedding -> cùng dim với static out_dim
         self.dynamic_proj = nn.Linear(self.text_encoder.config.hidden_size, self.out_dim)
 
+        # VLM for generating detailed degradation descriptions from images
+        self.vlm_processor = BlipProcessor.from_pretrained(vlm_model_name)
+        self.vlm_model = BlipForConditionalGeneration.from_pretrained(vlm_model_name)
+        self.vlm_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.vlm_model.to(self.vlm_device)
+
+    def generate_degradation_description(self, pil_image):
+        """
+        Sử dụng VLM (BLIP) để generate detailed description về degradations trong image.
+        Prompt tập trung vào 12 loại degradations (low light, haze, rain, snow, và composites),
+        mô tả chi tiết features như reduced visibility, streaks, particles, etc.
+        """
+        prompt = (
+            "Describe the weather degradations in this image, such as low light, haze, rain, snow, "
+            "or their combinations (e.g., low+haze, rain+snow). Explain in detail why it matches "
+            "these degradations by describing specific visual features like dim lighting, foggy "
+            "atmosphere, water streaks, snow particles, reduced contrast, etc."
+        )
+        inputs = self.vlm_processor(pil_image, prompt, return_tensors="pt").to(self.vlm_device)
+        with torch.no_grad():
+            generated_ids = self.vlm_model.generate(
+                **inputs, 
+                max_length=150, 
+                num_beams=5, 
+                temperature=0.7,
+                do_sample=True
+            )
+        description = self.vlm_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        return description
+
     def encode_dynamic_text(self, texts):
         """
         Encode text mô tả tự do từ LLM (caption mô tả degradation).
         """
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = self.text_encoder.device if hasattr(self.text_encoder, 'device') else "cuda" if torch.cuda.is_available() else "cpu"
         tokens = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt").to(device)
         outputs = self.text_encoder(**tokens)
         text_emb = outputs.last_hidden_state[:, 0, :]  # CLS token
@@ -244,13 +282,16 @@ class HybridEmbedder(Embedder):
             return super().forward(x, mode)
     
     def image_encoder_forward(self, batch):
-        img = self.transform(batch)
-
+        """
+        Legacy method: Assume batch is (labels_tensor, images_tensor)
+        Returns static embeddings based on classification.
+        """
         # word embedding
         scene_emb = self.embedder(self.train_type)
         scene_weight = self.mlp(scene_emb)
 
         #image embedding
+        img = self.transform(batch)  # Assume batch is images_tensor
         img = self.feat_extractor(img)[0]
         bs, _, h, w = img.shape
         img = self.img_embedder(img)
@@ -267,6 +308,56 @@ class HybridEmbedder(Embedder):
         text_type = [self.type_name[num_type[i]] for i in range(bs)]
 
         return out_embedding, num_type, text_type
+    
+    def enhanced_image_encoder_forward(self, pil_images):
+        """
+        New enhanced method: batch is list of PIL Images.
+        - Classify degradation type (static).
+        - Generate detailed description using VLM for the image (dynamic).
+        - Average static + dynamic embeddings to create enhanced text embedding sets.
+        Supports 12 degradation types by describing features in detail.
+        """
+        bs = len(pil_images)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Transform PIL to tensors for classification
+        to_tensor = transforms.Compose([
+            transforms.ToTensor(),
+            self.transform
+        ])
+        img_tensors = torch.stack([to_tensor(img) for img in pil_images]).to(device)
+
+        # Static: Word embedding and classification
+        scene_emb = self.embedder(self.train_type.to(device))
+        scene_weight = self.mlp(scene_emb)
+
+        # Image features for classification
+        img_feat = self.feat_extractor(img_tensors)[0]
+        img = self.img_embedder(img_feat)
+        img = self.img_avg_pool(img).squeeze(3).squeeze(2)
+        img = self.img_final(img)
+
+        pred = self.classifier(img, scene_weight)
+        pred_idx = torch.max(pred, dim=1)[1]
+        type_pred = self.train_type.to(device)[pred_idx]
+        text_type = [self.type_name[type_pred[i].item()] for i in range(bs)]
+
+        # Enhanced embeddings: Average static + dynamic
+        out_embedding = torch.zeros((bs, self.out_dim)).to(device)
+        for i in range(bs):
+            # Static embedding for predicted type
+            static_idx = type_pred[i].item()
+            static_emb = scene_weight[static_idx]
+
+            # Dynamic: Generate detailed description using VLM
+            description = self.generate_degradation_description(pil_images[i])
+            dyn_emb = self.encode_dynamic_text([description]).to(device)[0]
+
+            # Average vector for static + dynamic
+            enhanced_emb = (static_emb + dyn_emb) / 2
+            out_embedding[i] = enhanced_emb
+
+        return out_embedding, type_pred.cpu(), text_type
     
     def text_encoder_forward(self, text):
 
@@ -323,6 +414,10 @@ class HybridEmbedder(Embedder):
         elif type == 'image_encoder':
             with torch.no_grad():
                 out = self.image_encoder_forward(x)
+
+        elif type == 'enhanced_image_encoder':
+            with torch.no_grad():
+                out = self.enhanced_image_encoder_forward(x)  # x is list of PIL Images
 
         elif type == 'text_encoder':
             out = self.text_encoder_forward(x)

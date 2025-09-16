@@ -255,6 +255,8 @@ class HybridEmbedder(Embedder):
         static_weight = self.mlp(scene_emb)
         print(f"train_forward - Static weight shape: {static_weight.shape}")
 
+        if dynamic_texts is None:
+            dynamic_texts = self.generate_degradation_description(img)
         # --- Dynamic embedding
         if dynamic_texts is not None:
             dyn_weight = self.encode_dynamic_text(dynamic_texts)
@@ -452,8 +454,8 @@ class HybridEmbedder(Embedder):
 
         print(f"forward - Type: {type}")
         if type == 'train':
-            # out = self.train_forward(x)
-            out = self.enhanced_image_encoder_forward(x)
+            out = self.train_forward(x)
+            # out = self.enhanced_image_encoder_forward(x)
 
         elif type == 'image_encoder':
             with torch.no_grad():

@@ -452,11 +452,13 @@ class HybridEmbedder(Embedder):
 
         print(f"forward - Type: {type}")
         if type == 'train':
-            out = self.train_forward(x)
+            # out = self.train_forward(x)
+            out = self.enhanced_image_encoder_forward(x)
 
         elif type == 'image_encoder':
             with torch.no_grad():
                 out = self.image_encoder_forward(x)
+                
 
         elif type == 'enhanced_image_encoder':
             with torch.no_grad():

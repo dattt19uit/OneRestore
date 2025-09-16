@@ -215,7 +215,12 @@ class HybridEmbedder(Embedder):
             "these degradations by describing specific visual features like dim lighting, foggy "
             "atmosphere, water streaks, snow particles, reduced contrast, etc."
         )
-        inputs = self.vlm_processor(pil_image, prompt, return_tensors="pt").to(self.vlm_device)
+        # inputs = self.vlm_processor(pil_image, prompt, return_tensors="pt").to(self.vlm_device)
+        inputs = self.vlm_processor(
+            images=pil_image,
+            text=prompt,
+            return_tensors="pt"
+        ).to(self.vlm_device)
         with torch.no_grad():
             generated_ids = self.vlm_model.generate(
                 **inputs, 
@@ -259,7 +264,7 @@ class HybridEmbedder(Embedder):
             from torchvision.transforms.functional import to_pil_image
             pil_image = to_pil_image(batch[1][0].cpu())
             dynamic_texts = self.generate_degradation_description(pil_image)
-            
+
         # --- Dynamic embedding
         if dynamic_texts is not None:
             dyn_weight = self.encode_dynamic_text(dynamic_texts)

@@ -448,7 +448,7 @@ class HybridEmbedder(Embedder):
 
         return img
     
-    def forward(self, x, type = 'image_encoder'):
+    def forward(self, x, type = 'enhanced_image_encoder'):
 
         print(f"forward - Type: {type}")
         if type == 'train':

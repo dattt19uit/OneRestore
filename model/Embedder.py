@@ -472,5 +472,6 @@ class HybridEmbedder(Embedder):
             x = F.interpolate(x,size=(224,224),mode='bilinear')
             out = self.contrast_loss_forward(x)
 
-        logging.debug("forward - Completed with output type: ", type(out))
+        # logging.debug("forward - Completed with output type: ", type(out))
+        # logging.debug(f"forward - Completed with output type: {str(type(out))}")
         return out

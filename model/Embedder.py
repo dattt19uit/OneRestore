@@ -202,20 +202,48 @@ class HybridEmbedder(Embedder):
         self.vlm_device = "cuda" if torch.cuda.is_available() else "cpu"
         self.vlm_model.to(self.vlm_device)
 
+    # def generate_degradation_description(self, pil_image):
+    #     """
+    #     Sử dụng VLM (BLIP) để generate detailed description về degradations trong image.
+    #     Prompt tập trung vào 12 loại degradations (low light, haze, rain, snow, và composites),
+    #     mô tả chi tiết features như reduced visibility, streaks, particles, etc.
+    #     """
+    #     print("generate_degradation_description - Starting description generation")
+    #     prompt = (
+    #         "Describe the weather degradations in this image, such as low light, haze, rain, snow, "
+    #         "or their combinations (e.g., low+haze, rain+snow). Explain in detail why it matches "
+    #         "these degradations by describing specific visual features like dim lighting, foggy "
+    #         "atmosphere, water streaks, snow particles, reduced contrast, etc."
+    #     )
+    #     # inputs = self.vlm_processor(pil_image, prompt, return_tensors="pt").to(self.vlm_device)
+    #     inputs = self.vlm_processor(
+    #         images=pil_image,
+    #         text=prompt,
+    #         return_tensors="pt"
+    #     ).to(self.vlm_device)
+    #     with torch.no_grad():
+    #         generated_ids = self.vlm_model.generate(
+    #             **inputs, 
+    #             max_length=150, 
+    #             num_beams=5, 
+    #             temperature=0.7,
+    #             do_sample=True
+    #         )
+    #     description = self.vlm_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    #     print(f"generate_degradation_description - Generated description: {description}")
+    #     return description
     def generate_degradation_description(self, pil_image):
         """
-        Sử dụng VLM (BLIP) để generate detailed description về degradations trong image.
-        Prompt tập trung vào 12 loại degradations (low light, haze, rain, snow, và composites),
-        mô tả chi tiết features như reduced visibility, streaks, particles, etc.
+        Sinh detailed description về degradations trong image bằng BLIP.
+        Prompt tập trung vào 12 loại degradations (low light, haze, rain, snow, composites).
         """
         print("generate_degradation_description - Starting description generation")
         prompt = (
-            "Describe the weather degradations in this image, such as low light, haze, rain, snow, "
-            "or their combinations (e.g., low+haze, rain+snow). Explain in detail why it matches "
-            "these degradations by describing specific visual features like dim lighting, foggy "
-            "atmosphere, water streaks, snow particles, reduced contrast, etc."
+            "Question: What kinds of weather degradations (e.g., low light, haze, rain, snow, or combinations) "
+            "are present in this image? Describe in detail the visual evidence such as dim lighting, fog, "
+            "water streaks, snow particles, or reduced contrast.\nAnswer:"
         )
-        # inputs = self.vlm_processor(pil_image, prompt, return_tensors="pt").to(self.vlm_device)
+
         inputs = self.vlm_processor(
             images=pil_image,
             text=prompt,
@@ -224,16 +252,21 @@ class HybridEmbedder(Embedder):
 
         with torch.no_grad():
             generated_ids = self.vlm_model.generate(
-                **inputs, 
-                max_length=150, 
-                num_beams=5, 
+                **inputs,
+                max_length=150,
+                num_beams=5,
                 temperature=0.7,
                 do_sample=True
             )
-        description = self.vlm_processor.batch_decode(generated_ids[0], skip_special_tokens=True)
+
+        description = self.vlm_processor.decode(
+            generated_ids[0],
+            skip_special_tokens=True
+        )
+
         print(f"generate_degradation_description - Generated description: {description}")
         return description
-
+    
     def encode_dynamic_text(self, texts):
         """
         Encode text mô tả tự do từ LLM (caption mô tả degradation).

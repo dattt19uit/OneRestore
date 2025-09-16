@@ -221,6 +221,7 @@ class HybridEmbedder(Embedder):
             text=prompt,
             return_tensors="pt"
         ).to(self.vlm_device)
+
         with torch.no_grad():
             generated_ids = self.vlm_model.generate(
                 **inputs, 
@@ -229,7 +230,7 @@ class HybridEmbedder(Embedder):
                 temperature=0.7,
                 do_sample=True
             )
-        description = self.vlm_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        description = self.vlm_processor.batch_decode(generated_ids[0], skip_special_tokens=True)
         print(f"generate_degradation_description - Generated description: {description}")
         return description
 

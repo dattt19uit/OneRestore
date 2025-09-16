@@ -256,6 +256,8 @@ class HybridEmbedder(Embedder):
         print(f"train_forward - Static weight shape: {static_weight.shape}")
 
         if dynamic_texts is None:
+            from torchvision.transforms.functional import to_pil_image
+            img = self.transform(to_pil_image(batch[1]))
             dynamic_texts = self.generate_degradation_description(img)
         # --- Dynamic embedding
         if dynamic_texts is not None:

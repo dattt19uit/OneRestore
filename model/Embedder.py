@@ -257,10 +257,9 @@ class HybridEmbedder(Embedder):
 
         if dynamic_texts is None:
             from torchvision.transforms.functional import to_pil_image
-            img_tensor = batch[1][0]  # shape (C, H, W)
-            pil_image = to_pil_image(img_tensor.cpu())
-            img = self.transform(pil_image)
-            dynamic_texts = self.generate_degradation_description(img)
+            pil_image = to_pil_image(batch[1][0].cpu())
+            dynamic_texts = self.generate_degradation_description(pil_image)
+            
         # --- Dynamic embedding
         if dynamic_texts is not None:
             dyn_weight = self.encode_dynamic_text(dynamic_texts)

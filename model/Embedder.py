@@ -12,15 +12,19 @@ import time
 from PIL import Image
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = lambda: None  # Fallback if dotenv not installed
 
-# Load env variables
-load_dotenv()
+# Try to load from Colab Secrets if available, else use .env
+try:
+    from google.colab import userdata
+    os.environ["OPENAI_API_KEY"] = userdata.get('OPENAI_API_KEY')
+except (ImportError, KeyError):
+    load_dotenv()  # Load from .env file if not in Colab or no Secret found
 
 from huggingface_hub import PyTorchModelHubMixin
-
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Backbone(nn.Module, PyTorchModelHubMixin, repo_url="https://github.com/gy65896/OneRestore", pipeline_tag="image-feature-extraction"):
     def __init__(self, backbone='resnet18'):

@@ -4,6 +4,7 @@ import numpy as np
 import torchvision.transforms as transforms
 import torch.utils.data as data
 from einops import rearrange
+from utils.dynamic_text import get_dynamic_idx, get_dynamic_label
 
 class ImageLoader:
     def __init__(self, root):
@@ -33,7 +34,7 @@ def imagenet_transform(phase):
 
 class Dataset_embedding(data.Dataset):
     def __init__(self, cfg_data, phase='train'):
-
+        self.phase = phase 
         self.transform = imagenet_transform(phase)
         self.type_name = cfg_data.type_name
         self.type2idx = {self.type_name[i]: i for i in range(len(self.type_name))}
@@ -44,20 +45,25 @@ class Dataset_embedding(data.Dataset):
             self.data = []
             for i in range(len(self.type_name)):
                 for j in range(len(name)):
-                    self.data.append([self.type_name[i], name[j]])
+                    dynamic_label = get_dynamic_label(phase, self.type_name[i], name[j])
+                    # self.data.append([self.type_name[i], name[j]])
+                    self.data.append([self.type_name[i], dynamic_label, name[j]])
         elif phase == 'test':
             self.loader = ImageLoader(cfg_data.test_dir)
             name = os.listdir(f'{cfg_data.test_dir}/{self.type_name[0]}')
             self.data = []
             for i in range(1, len(self.type_name)):
                 for j in range(len(name)):
-                    self.data.append([self.type_name[i], name[j]])
+                    dynamic_label = get_dynamic_label(phase, self.type_name[i], name[j])
+                    # self.data.append([self.type_name[i], name[j]])
+                    self.data.append([self.type_name[i], dynamic_label, name[j]])
         print(f'The amount of {phase} data is {len(self.data)}')
 
     def __getitem__(self, index):
 
-        type_name, image_name = self.data[index]
-        scene = self.type2idx[type_name]
+        type_name, dynamic_label, image_name = self.data[index]
+        # scene = self.type2idx[type_name]
+        scene = get_dynamic_idx(self.phase, type_name, image_name)
         image = self.transform(self.loader(f'{type_name}/{image_name}'))
 
         return (scene, image)

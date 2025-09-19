@@ -27,7 +27,7 @@ def train_embedding(cur_epoch, model, optimizer, trainloader, testloader, device
 
         model.train()
         for idx, batch in enumerate(trainloader):
-            print(batch)
+            print(batch[0])
             for i in range(len(batch)):
                 batch[i] = batch[i].to("cuda" if torch.cuda.is_available() else "cpu")
             time_start = time.time()

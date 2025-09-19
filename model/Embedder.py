@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from utils.utils_word_embedding import initialize_wordembedding_matrix
-
+from model.clip_caption_encoder import CLIPCaptionEncoder
 from huggingface_hub import PyTorchModelHubMixin
 
 class Backbone(nn.Module, PyTorchModelHubMixin, repo_url="https://github.com/gy65896/OneRestore", pipeline_tag="image-feature-extraction"):

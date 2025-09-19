@@ -7,7 +7,7 @@ def get_dynamic_text(mode, degradation, filename):
     return data[degradation][filename]
 
 
-with open(f'labels/train.json', 'r', encoding='utf-8') as f:
+with open(f'labels/test.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
     idx = 0
     indexs = {}
@@ -21,5 +21,5 @@ with open(f'labels/train.json', 'r', encoding='utf-8') as f:
 
     print(indexs)
 
-    with open('labels/train_index.json', 'w', encoding='utf-8') as f:
+    with open('labels/test_index.json', 'w', encoding='utf-8') as f:
         json.dump(indexs, f, ensure_ascii=False, indent=4)

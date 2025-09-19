@@ -82,8 +82,10 @@ class Embedder(nn.Module):
         
         # self._setup_word_embedding()
         self._setup_image_embedding()
-        self.caption_encoder = CaptionEncoder(wordembs, out_dim)
-
+        self.caption_encoder = CLIPCaptionEncoder(
+            model_name="openai/clip-vit-base-patch32",
+            out_dim=out_dim
+        )
     def _setup_image_embedding(self):
         # image embedding
         self.feat_extractor = Backbone(self.extractor_name)
@@ -277,7 +279,7 @@ class CaptionEncoder(nn.Module):
     def __init__(self, wordembs='glove', out_dim=324):
         super().__init__()
         # load embedding matrix
-        wordemb, self.word_dim, self.word2idx = initialize_wordembedding_matrix(wordembs)
+        wordemb, self.word_dim, self.word2idx = initialize_wordembedding_matrix(wordembs, [])
         self.embedder = nn.Embedding(len(self.word2idx), self.word_dim)
         self.embedder.weight.data.copy_(wordemb)
 

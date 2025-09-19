@@ -66,7 +66,7 @@ class Dataset_embedding(data.Dataset):
         scene = get_dynamic_idx(self.phase, type_name, image_name)
         image = self.transform(self.loader(f'{type_name}/{image_name}'))
 
-        return (scene, image)
+        return (dynamic_label, image)
 
     def __len__(self):
         return len(self.data)

@@ -46,7 +46,6 @@ class Dataset_embedding(data.Dataset):
             for i in range(len(self.type_name)):
                 for j in range(len(name)):
                     dynamic_label = get_dynamic_label(phase, self.type_name[i], name[j])
-                    print(dynamic_label)
                     # self.data.append([self.type_name[i], name[j]])
                     self.data.append([self.type_name[i], dynamic_label, name[j]])
         elif phase == 'test':
@@ -56,7 +55,6 @@ class Dataset_embedding(data.Dataset):
             for i in range(1, len(self.type_name)):
                 for j in range(len(name)):
                     dynamic_label = get_dynamic_label(phase, self.type_name[i], name[j])
-                    print(dynamic_label)
                     # self.data.append([self.type_name[i], name[j]])
                     self.data.append([self.type_name[i], dynamic_label, name[j]])
         print(f'The amount of {phase} data is {len(self.data)}')

@@ -262,7 +262,7 @@ class Embedder(nn.Module):
         return (loss_i + loss_t) / 2
 
     def forward(self, batch, mode='train'):
-        images, captions = batch
+        scene, images = batch
         print(images)
         img_emb = self.encode_image(batch)
         return

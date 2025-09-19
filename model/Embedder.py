@@ -80,9 +80,10 @@ class Embedder(nn.Module):
         self.extractor_name = extractor_name
         self.transform = transforms.Normalize(mean, std)
         
-        self._setup_word_embedding()
+        # self._setup_word_embedding()
         self._setup_image_embedding()
-        
+        self.caption_encoder = CaptionEncoder(wordembs, out_dim)
+
     def _setup_image_embedding(self):
         # image embedding
         self.feat_extractor = Backbone(self.extractor_name)
@@ -171,70 +172,137 @@ class Embedder(nn.Module):
 
         return out_embedding, num_type, text_type
     
-    def text_encoder_forward(self, text):
+    # def text_encoder_forward(self, text):
 
-        bs = len(text)
+    #     bs = len(text)
 
-        # word embedding
-        scene_emb = self.embedder(self.train_type)
-        scene_weight = self.mlp(scene_emb)
+    #     # word embedding
+    #     scene_emb = self.embedder(self.train_type)
+    #     scene_weight = self.mlp(scene_emb)
 
-        num_type = torch.zeros((bs)).to("cuda" if torch.cuda.is_available() else "cpu")
-        for i in range(bs):
-            num_type[i] = self.type2idx[text[i]]
+    #     num_type = torch.zeros((bs)).to("cuda" if torch.cuda.is_available() else "cpu")
+    #     for i in range(bs):
+    #         num_type[i] = self.type2idx[text[i]]
 
-        out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
-        for i in range(bs):
-            out_embedding[i,:] = scene_weight[int(num_type[i]),:]
-        text_type = text
+    #     out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
+    #     for i in range(bs):
+    #         out_embedding[i,:] = scene_weight[int(num_type[i]),:]
+    #     text_type = text
 
-        return out_embedding, num_type, text_type
+    #     return out_embedding, num_type, text_type
     
-    def text_idx_encoder_forward(self, idx):
+    # def text_idx_encoder_forward(self, idx):
 
-        bs = idx.shape[0]
+    #     bs = idx.shape[0]
 
-        # word embedding
-        scene_emb = self.embedder(self.train_type)
-        scene_weight = self.mlp(scene_emb)
+    #     # word embedding
+    #     scene_emb = self.embedder(self.train_type)
+    #     scene_weight = self.mlp(scene_emb)
 
-        num_type = idx
+    #     num_type = idx
 
-        out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
-        for i in range(bs):
-            out_embedding[i,:] = scene_weight[int(num_type[i]),:]
+    #     out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
+    #     for i in range(bs):
+    #         out_embedding[i,:] = scene_weight[int(num_type[i]),:]
 
-        return out_embedding
+    #     return out_embedding
 
-    def contrast_loss_forward(self, batch):
+    # def contrast_loss_forward(self, batch):
 
-        img = self.transform(batch)
+    #     img = self.transform(batch)
 
-        #image embedding
+    #     #image embedding
+    #     img = self.feat_extractor(img)[0]
+    #     img = self.img_embedder(img)
+    #     img = self.img_avg_pool(img).squeeze(3).squeeze(2)
+    #     img = self.img_final(img)
+
+    #     return img
+    
+    # def forward(self, x, type = 'image_encoder'):
+
+    #     if type == 'train':
+    #         out = self.train_forward(x)
+
+    #     elif type == 'image_encoder':
+    #         with torch.no_grad():
+    #             out = self.image_encoder_forward(x)
+
+    #     elif type == 'text_encoder':
+    #         out = self.text_encoder_forward(x)
+        
+    #     elif type == 'text_idx_encoder':
+    #         out = self.text_idx_encoder_forward(x)
+
+    #     elif type == 'visual_embed':
+    #         x = F.interpolate(x,size=(224,224),mode='bilinear')
+    #         out = self.contrast_loss_forward(x)
+
+    #     return out
+    def encode_image(self, img):
+        img = self.transform(img)
         img = self.feat_extractor(img)[0]
         img = self.img_embedder(img)
         img = self.img_avg_pool(img).squeeze(3).squeeze(2)
         img = self.img_final(img)
-
         return img
-    
-    def forward(self, x, type = 'image_encoder'):
 
-        if type == 'train':
-            out = self.train_forward(x)
+    def encode_text(self, captions):
+        return self.caption_encoder(captions)
 
-        elif type == 'image_encoder':
-            with torch.no_grad():
-                out = self.image_encoder_forward(x)
+    def contrastive_loss(self, img_emb, txt_emb):
+        img_emb = F.normalize(img_emb, dim=-1)
+        txt_emb = F.normalize(txt_emb, dim=-1)
+        logits = torch.matmul(img_emb, txt_emb.T) / self.cosine_cls_temp
+        labels = torch.arange(img_emb.size(0)).to(img_emb.device)
+        loss_i = F.cross_entropy(logits, labels)
+        loss_t = F.cross_entropy(logits.T, labels)
+        return (loss_i + loss_t) / 2
 
-        elif type == 'text_encoder':
-            out = self.text_encoder_forward(x)
-        
-        elif type == 'text_idx_encoder':
-            out = self.text_idx_encoder_forward(x)
+    def forward(self, images, captions, mode='train'):
+        img_emb = self.encode_image(images)
+        txt_emb = self.encode_text(captions)
 
-        elif type == 'visual_embed':
-            x = F.interpolate(x,size=(224,224),mode='bilinear')
-            out = self.contrast_loss_forward(x)
+        if mode == 'train':
+            loss = self.contrastive_loss(img_emb, txt_emb)
+            return {"loss_total": loss}
+        elif mode == 'embed':
+            return img_emb, txt_emb
+            
 
-        return out
+# ==============================
+# Caption Encoder (GloVe + mean pooling)
+# ==============================
+class CaptionEncoder(nn.Module):
+    def __init__(self, wordembs='glove', out_dim=324):
+        super().__init__()
+        # load embedding matrix
+        wordemb, self.word_dim, self.word2idx = initialize_wordembedding_matrix(wordembs)
+        self.embedder = nn.Embedding(len(self.word2idx), self.word_dim)
+        self.embedder.weight.data.copy_(wordemb)
+
+        self.mlp = nn.Sequential(
+            nn.Linear(self.word_dim, out_dim),
+            nn.ReLU(True)
+        )
+
+    def forward(self, captions):
+        """
+        captions: list[str]
+        return: Tensor (bs, out_dim)
+        """
+        bs = len(captions)
+        device = next(self.parameters()).device
+        out_embedding = torch.zeros((bs, self.mlp[0].out_features)).to(device)
+
+        for i, cap in enumerate(captions):
+            tokens = cap.lower().split()
+            vecs = []
+            for t in tokens:
+                if t in self.word2idx:
+                    idx = torch.tensor(self.word2idx[t]).to(device)
+                    vecs.append(self.embedder(idx))
+            if len(vecs) > 0:
+                phrase_vec = torch.stack(vecs, dim=0).mean(0)  # mean pooling
+                out_embedding[i,:] = self.mlp(phrase_vec)
+        return out_embedding

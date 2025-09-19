@@ -37,10 +37,10 @@ def train_embedding(cur_epoch, model, optimizer, trainloader, testloader, device
             time_start = time.time()
             out = model(batch, 'train')
             loss = out['loss_total']
-            acc  = out['acc_type']
+            # acc  = out['acc_type']
             time_train_meter.update(time.time() - time_start)
 
-            acc_train_meter.update(acc)
+            # acc_train_meter.update(acc)
             loss_train_meter.update(loss)
 
             optimizer.zero_grad()
@@ -59,14 +59,14 @@ def train_embedding(cur_epoch, model, optimizer, trainloader, testloader, device
             time_start = time.time()
             out = model(batch, 'train')
             loss = out['loss_total']
-            acc  = out['acc_type']
+            # acc  = out['acc_type']
             time_test_meter.update(time.time() - time_start)
 
-            acc_test_meter.update(acc)
+            # acc_test_meter.update(acc)
             loss_test_meter.update(loss)
             print(f'Epoch:{epoch}|Iter:{idx+1}/{len(testloader)}|lr:{lr},'
                 f'Loss: {loss_test_meter.avg:.3f},'
-                f'Acc: {acc_test_meter.avg:.3f},'
+                # f'Acc: {acc_test_meter.avg:.3f},'
                 f'Time: {time_test_meter.avg:.3f},', flush=True)
         
         torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()},

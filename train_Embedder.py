@@ -69,8 +69,10 @@ def train_embedding(cur_epoch, model, optimizer, trainloader, testloader, device
                 # f'Acc: {acc_test_meter.avg:.3f},'
                 f'Time: {time_test_meter.avg:.3f},', flush=True)
         
+        # torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()},
+        #                  f'{cfg_em.check_dir}/embedder_model_epoch{epoch}_{acc_train_meter.avg:.3f}_{loss_train_meter.avg:.3f}_{acc_test_meter.avg:.3f}_{loss_test_meter.avg:.3f}.tar')
         torch.save({'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer' : optimizer.state_dict()},
-                         f'{cfg_em.check_dir}/embedder_model_epoch{epoch}_{acc_train_meter.avg:.3f}_{loss_train_meter.avg:.3f}_{acc_test_meter.avg:.3f}_{loss_test_meter.avg:.3f}.tar')
+                         f'{cfg_em.check_dir}/embedder_model.tar')
         acc_train_meter.reset()
         acc_test_meter.reset()
         loss_train_meter.reset()

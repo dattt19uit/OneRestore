@@ -124,7 +124,7 @@ class Embedder(nn.Module):
 
     def train_forward(self, batch):
 
-        scene, img = batch[0], self.transform(batch[1])
+        scene, img = batch[0], batch[1]
         bs = img.shape[0]
 
         # word embedding
@@ -242,7 +242,7 @@ class Embedder(nn.Module):
 
     #     return out
     def encode_image(self, img):
-        img = self.transform(img)
+        # img = self.transform(img)
         img = self.feat_extractor(img)[0]
         img = self.img_embedder(img)
         img = self.img_avg_pool(img).squeeze(3).squeeze(2)
@@ -261,7 +261,8 @@ class Embedder(nn.Module):
         loss_t = F.cross_entropy(logits.T, labels)
         return (loss_i + loss_t) / 2
 
-    def forward(self, images, captions, mode='train'):
+    def forward(self, batch, mode='train'):
+        images, captions = batch
         img_emb = self.encode_image(images)
         txt_emb = self.encode_text(captions)
 

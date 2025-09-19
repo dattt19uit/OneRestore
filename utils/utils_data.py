@@ -39,10 +39,6 @@ class Dataset_embedding(data.Dataset):
         self.transform = imagenet_transform(phase)
         self.type_name = cfg_data.type_name
         self.type2idx = {self.type_name[i]: i for i in range(len(self.type_name))}
-        self.caption_encoder = CLIPCaptionEncoder(
-            model_name="openai/clip-vit-base-patch32",
-            out_dim = 324
-        )
         if phase == 'train':
             self.loader = ImageLoader(cfg_data.train_dir)
             name = os.listdir(f'{cfg_data.train_dir}/{self.type_name[0]}')
@@ -67,7 +63,7 @@ class Dataset_embedding(data.Dataset):
 
         type_name, dynamic_label, image_name = self.data[index]
         # scene = self.type2idx[type_name]
-        scene = self.caption_encoder(dynamic_label)
+        scene = get_dynamic_idx(self.phase, type_name, image_name)
         image = self.transform(self.loader(f'{type_name}/{image_name}'))
 
         return (scene, image)

@@ -264,8 +264,8 @@ class Embedder(nn.Module):
     def forward(self, batch, mode='train'):
         images, captions = batch
         print(images)
-        return
         img_emb = self.encode_image(images)
+        return
         txt_emb = self.encode_text(captions)
 
         if mode == 'train':

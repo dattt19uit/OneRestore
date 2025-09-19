@@ -295,5 +295,32 @@
     "00084": "The image shows moderate brightness and contrast, with the ancient structure clearly visible despite the overlay of rain streaks. Texture and sharpness are slightly reduced by the vertical rain lines, causing mild blurring and a small loss of detail, especially in the mid to lower parts of the structure. Clarity is impacted by the rain streaks, which create a semi-transparent veil, making the scene appear less crisp but still recognizable. The presence of distinct rain streaks and their effect on visibility indicates a moderate level of rain, justifying the \"rain\" label due to the observable precipitation obscuring the view.",
     "00120": "The image exhibits normal brightness and contrast levels, with sharp and clear details on the ducks and grass. However, the vertical streaks seen throughout the image indicate the presence of rain, creating a texture that partially obscures visibility. This causes slight blurring and a washed-out effect in certain areas, especially on the duck on the right. The rain has a moderate severity, as it is clearly visible but does not completely obscure the scene. These visible rain streaks and their impact on clarity justify the classification of the image as belonging to the \"rain\" category.",
     "00009": "The image shows moderate brightness and contrast, with warm tones balanced by slight dimness caused by the rain. Texture is affected by visible rain streaks, creating a pattern overlay that reduces clarity and sharpness, especially on distant details like windows and balconies. The rain causes a notable blurring effect and a soft haze, diminishing overall visibility but not completely obscuring the scene. These degradations clearly indicate a moderate level of rain, as the falling raindrops create a consistent veil across the image, linking it directly to the \"rain\" category."
+  },
+  "clear": {
+    "00085": "clear",
+    "00144": "clear",
+    "00057": "clear",
+    "00127": "clear",
+    "00061": "clear",
+    "00110": "clear",
+    "00068": "clear",
+    "00130": "clear",
+    "00038": "clear",
+    "00154": "clear",
+    "00059": "clear",
+    "00122": "clear",
+    "00064": "clear",
+    "00012": "clear",
+    "00015": "clear",
+    "00031": "clear",
+    "00139": "clear",
+    "00029": "clear",
+    "00042": "clear",
+    "00065": "clear",
+    "00011": "clear",
+    "00142": "clear",
+    "00084": "clear",
+    "00120": "clear",
+    "00009": "clear"
   }
 }

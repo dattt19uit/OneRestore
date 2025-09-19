@@ -1,31 +1,25 @@
-# import json
+import json
 
 
-# def get_dynamic_text(mode, degradation, filename):
-#     with open(f'labels/{mode}.json', 'r') as f:
-#         data = json.load(f)
-#     return data[degradation][filename]
+def get_dynamic_text(mode, degradation, filename):
+    with open(f'labels/{mode}.json', 'r') as f:
+        data = json.load(f)
+    return data[degradation][filename]
 
 
-# with open(f'labels/train.json', 'r', encoding='utf-8') as f:
-#     data = json.load(f)
-#     idx = 0
-#     indexs = {}
-#     for k, v in data.items():
-#         deg = {}
-#         for i, j in v.items():
-#             print(k, i, idx)
-#             deg[i] = idx
-#             idx += 1
-#         indexs[k] = deg
+with open(f'labels/train.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+    idx = 0
+    indexs = {}
+    for k, v in data.items():
+        deg = {}
+        for i, j in v.items():
+            print(k, i, idx)
+            deg[i] = idx
+            idx += 1
+        indexs[k] = deg
 
-#     print(indexs)
+    print(indexs)
 
-#     with open('labels/train_index.json', 'w', encoding='utf-8') as f:
-#         json.dump(indexs, f, ensure_ascii=False, indent=4)
-
-import os
-
-name = os.listdir(f'image')
-
-print(name)
+    with open('labels/train_index.json', 'w', encoding='utf-8') as f:
+        json.dump(indexs, f, ensure_ascii=False, indent=4)

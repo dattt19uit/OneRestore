@@ -75,5 +75,12 @@
     "00018": "The image exhibits moderate brightness and contrast, with an overall warm tone. Texture details on the building are visible but slightly softened by the rain streaks, causing mild blurring and a reduction in sharpness. The vertical rain lines create a layered texture that impacts clarity by partially obscuring finer details of the facade. The rain severity is moderate, as the streaks are clear and consistent but do not heavily obscure the scene. These degradations—blurring from water streaks and decreased clarity—directly cause the perceivable rain effect in the image, justifying its classification under the \"rain\" category.",
     "00010": "The image exhibits good brightness and contrast, with vivid colors and clear details in the background. However, the texture is disrupted by numerous vertical streaks which cause blurring and partial obscuring of objects, reducing overall sharpness and clarity. These streaks mimic the visual effect of falling rain, creating a layered obstruction while still allowing background elements to remain discernible. The rain severity is moderate, as the amount of streaking clearly impacts visibility but does not fully obscure the scene. This degradation is consistent with rain, justifying the \"rain\" label.",
     "00013": "The image exhibits high brightness and moderate contrast, with clear texture in the trees and grass. Sharpness and clarity are slightly reduced due to the visible rain streaks, which create a vertical blur over the scene. These streaks cause mild loss of detail, particularly on the snow and sky, but do not obscure the overall visibility. The rain severity is moderate, as the streaks are numerous and consistent but still allow most features to remain identifiable. The characteristic streak patterns and blurred areas directly indicate rainfall, justifying the \"rain\" classification."
+  },
+  "clear": {
+    "00008": "clear",
+    "00002": "clear",
+    "00018": "clear",
+    "00010": "clear",
+    "00013": "clear"
   }
 }

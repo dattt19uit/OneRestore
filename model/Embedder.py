@@ -262,14 +262,15 @@ class Embedder(nn.Module):
         return (loss_i + loss_t) / 2
 
     def forward(self, batch, mode='train'):
-        indexs, images, captions= batch
-        img_emb = self.encode_image(images)
-        txt_emb = self.encode_text(captions)
         if mode == 'train':
+            indexs, images, captions= batch
+            img_emb = self.encode_image(images)
+            txt_emb = self.encode_text(captions)
             loss = self.contrastive_loss(img_emb, txt_emb)
             return {"loss_total": loss}
-        elif mode == 'embed':
-            return img_emb, txt_emb
+        elif mode == 'text_encoder':
+            txt_emb = self.encode_text(captions)
+            return txt_emb, None, None
             
 
 # ==============================

@@ -44,7 +44,7 @@ def train(restorer, embedder, optimizer, loss, cur_epoch, args, dataset, device)
         restorer.train()
 
         for i, data in enumerate(dataset,0):
-            print(data[3])
+            print(data)
             pos, inp, neg = data_process(data, args, device)
 
             text_embedding,_,_ = embedder(inp[1],'text_encoder')

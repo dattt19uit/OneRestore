@@ -174,24 +174,24 @@ class Embedder(nn.Module):
 
         return out_embedding, num_type, text_type
     
-    # def text_encoder_forward(self, text):
+    def text_encoder_forward(self, text):
 
-    #     bs = len(text)
+        bs = len(text)
 
-    #     # word embedding
-    #     scene_emb = self.embedder(self.train_type)
-    #     scene_weight = self.mlp(scene_emb)
+        # word embedding
+        scene_emb = self.embedder(self.train_type)
+        scene_weight = self.mlp(scene_emb)
 
-    #     num_type = torch.zeros((bs)).to("cuda" if torch.cuda.is_available() else "cpu")
-    #     for i in range(bs):
-    #         num_type[i] = self.type2idx[text[i]]
+        num_type = torch.zeros((bs)).to("cuda" if torch.cuda.is_available() else "cpu")
+        for i in range(bs):
+            num_type[i] = self.type2idx[text[i]]
 
-    #     out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
-    #     for i in range(bs):
-    #         out_embedding[i,:] = scene_weight[int(num_type[i]),:]
-    #     text_type = text
+        out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
+        for i in range(bs):
+            out_embedding[i,:] = scene_weight[int(num_type[i]),:]
+        text_type = text
 
-    #     return out_embedding, num_type, text_type
+        return out_embedding, num_type, text_type
     
     # def text_idx_encoder_forward(self, idx):
 
@@ -268,10 +268,9 @@ class Embedder(nn.Module):
             txt_emb = self.encode_text(captions)
             loss = self.contrastive_loss(img_emb, txt_emb)
             return {"loss_total": loss}
-        elif mode == 'text_encoder':
+        elif mode == 'legacy_text_encoder':
             print(batch)
-            txt_emb = self.encode_text(captions)
-            return txt_emb, None, None
+            return self.text_encoder_forward(batch)
             
 
 # ==============================

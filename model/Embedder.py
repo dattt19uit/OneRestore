@@ -231,7 +231,7 @@ class Embedder(nn.Module):
     #             out = self.image_encoder_forward(x)
 
     #     elif type == 'text_encoder':
-    #         out = self.text_encoder_forward(x)
+            # out = self.text_encoder_forward(x)
         
     #     elif type == 'text_idx_encoder':
     #         out = self.text_idx_encoder_forward(x)
@@ -269,6 +269,7 @@ class Embedder(nn.Module):
             loss = self.contrastive_loss(img_emb, txt_emb)
             return {"loss_total": loss}
         elif mode == 'text_encoder':
+            print(batch)
             txt_emb = self.encode_text(captions)
             return txt_emb, None, None
             

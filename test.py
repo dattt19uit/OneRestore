@@ -51,7 +51,7 @@ def main(args):
             if args.concat:
                 out = torch.cat((lq_re, out), dim=3)
 
-            imwrite(out, f'{args.output}/{i}', range=(0, 1))
+            imwrite(out, f'{args.output}/{i}', value_range=(0, 1))
 
             print(f'{i} Running Time: {run_time:.4f}.')
     print(f'Average time is {np.mean(np.array(run_time))}')

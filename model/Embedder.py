@@ -306,6 +306,8 @@ class Embedder(nn.Module):
             return {"loss_total": loss}
         elif mode == 'text_encoder':
             return self.text_encoder_forward(batch)
+        elif mode == 'image_encoder':
+            return self.encode_image(batch)
             
 
 # ==============================

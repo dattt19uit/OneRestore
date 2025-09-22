@@ -45,8 +45,7 @@ def train(restorer, embedder, optimizer, loss, cur_epoch, args, dataset, device)
 
         for i, data in enumerate(dataset,0):
             # print(data)
-            patch = data["image"].to(device)
-            caption = data["caption"]
+            patch, caption= data
             pos, inp, neg = data_process(patch, caption, args, device)
 
             text_embedding,_,_ = embedder(inp[1],'text_encoder')

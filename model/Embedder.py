@@ -175,20 +175,23 @@ class Embedder(nn.Module):
         return out_embedding, num_type, text_type
     
     def text_encoder_forward(self, text):
+        """
+        Encode text bằng CLIPCaptionEncoder
+        Args:
+            text (str hoặc list[str]): caption động
+        Returns:
+            out_embedding: torch.Tensor (bs, out_dim)
+            num_type: dummy tensor (giữ format cũ)
+            text_type: list[str], caption gốc
+        """
+        if isinstance(text, str):
+            text = [text]
 
-        bs = len(text)
+        device = next(self.parameters()).device
+        out_embedding = self.caption_encoder(text).to(device)  # (bs, out_dim)
 
-        # word embedding
-        scene_emb = self.embedder(self.train_type)
-        scene_weight = self.mlp(scene_emb)
-
-        num_type = torch.zeros((bs)).to("cuda" if torch.cuda.is_available() else "cpu")
-        for i in range(bs):
-            num_type[i] = self.type2idx[text[i]]
-
-        out_embedding = torch.zeros((bs,self.out_dim)).to("cuda" if torch.cuda.is_available() else "cpu")
-        for i in range(bs):
-            out_embedding[i,:] = scene_weight[int(num_type[i]),:]
+        # Giữ cấu trúc trả về giống code cũ
+        num_type = torch.arange(len(text), device=device)  # dummy index
         text_type = text
 
         return out_embedding, num_type, text_type

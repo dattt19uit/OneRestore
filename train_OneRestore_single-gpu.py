@@ -70,16 +70,14 @@ def train(restorer, embedder, optimizer, loss, cur_epoch, args, dataset, device)
 
         # lưu log + checkpoint
         load_excel(metric)
-        # save_checkpoint(
-        #     {
-        #         "epoch": epoch + 1,
-        #         "state_dict": restorer.state_dict(),
-        #         "optimizer": optimizer.state_dict()
-        #     },
-        #     args.save_model_path,
-        #     epoch + 1,
-        #     psnr_val, ssim_val
-        # )
+        save_checkpoint(
+            {
+                "epoch": epoch + 1,
+                "state_dict": restorer.state_dict(),
+                "optimizer": optimizer.state_dict()
+            },
+            args.save_model_path
+        )
 
 def test(args, restorer, embedder, device, epoch=-1):
     combine_type = args.degr_type

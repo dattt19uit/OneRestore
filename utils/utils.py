@@ -252,8 +252,10 @@ def tensor_metric(img, imclean, model, data_range=1):
         
     return SUM/img_cpu.shape[0]
 
-def save_checkpoint(stateF, checkpoint, epoch, psnr_t1,ssim_t1,psnr_t2,ssim_t2, filename='model.tar'):
-    torch.save(stateF, checkpoint + 'OneRestore_model_%d_%.4f_%.4f_%.4f_%.4f.tar'%(epoch,psnr_t1,ssim_t1,psnr_t2,ssim_t2))
+# def save_checkpoint(stateF, checkpoint, epoch, psnr_t1,ssim_t1,psnr_t2,ssim_t2, filename='model.tar'):
+    # torch.save(stateF, checkpoint + 'OneRestore_model_%d_%.4f_%.4f_%.4f_%.4f.tar'%(epoch,psnr_t1,ssim_t1,psnr_t2,ssim_t2))
+def save_checkpoint(stateF, checkpoint):
+    torch.save(stateF, checkpoint + 'onerestore_model.tar')
 
 def load_excel(x):
     data1 = pd.DataFrame(x)

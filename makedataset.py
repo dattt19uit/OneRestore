@@ -156,7 +156,7 @@ def Train_data(args):
                 data = img[:, :, :, :, nx]
                 print(count, data.shape)
                 # h5f.create_dataset(str(count), data=data)
-                dset = h5f.create_dataset(str(count), data=data, compressions="gzip", compression_opts=4)
+                dset = h5f.create_dataset(str(count), data=data)
                 dset.attrs["caption"] = caption_text
                 print(count, data.shape, caption_text[:40] + "...")
                 count += 1

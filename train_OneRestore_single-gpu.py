@@ -122,8 +122,8 @@ def test(args, restorer, embedder, device, epoch=-1):
 
                 # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
                 #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
-                lq_tensor = torch.tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
-                hq_tensor = torch.tensor((np.array(hq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
+                lq_tensor = torch.from_numpy((np.array(lq)/255).transpose(2, 0, 1)).unsqueeze(0).float().to(device)
+                hq_tensor = torch.from_numpy((np.array(hq)/255).transpose(2, 0, 1)).unsqueeze(0).float().to(device)
 
                 starttime = time.time()
 

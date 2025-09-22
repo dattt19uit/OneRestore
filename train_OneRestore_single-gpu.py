@@ -63,15 +63,6 @@ def train(restorer, embedder, optimizer, loss, cur_epoch, args, dataset, device)
 
             print("[epoch %d][%d/%d] lr :%f Floss: %.4f MSE: %.4f PSNR: %.4f SSIM: %.4f"%(epoch+1, i+1, \
                 len(dataset), learnrate, total_loss.item(), mse, psnr, ssim))
-            
-
-        # psnr_t1, ssim_t1, psnr_t2, ssim_t2 = test(args, restorer, embedder, device, epoch)
-        # metric.append([psnr_t1, ssim_t1, psnr_t2, ssim_t2])
-        # print("[epoch %d] Test images PSNR1: %.4f SSIM1: %.4f"%(epoch+1, psnr_t1,ssim_t1))
-
-        # load_excel(metric)
-        # save_checkpoint({'epoch': epoch + 1,'state_dict': restorer.state_dict(),'optimizer' : optimizer.state_dict()},\
-        #                 args.save_model_path, epoch+1, psnr_t1,ssim_t1,psnr_t2,ssim_t2)
         psnr_val, ssim_val = test(args, restorer, embedder, device, epoch)
         metric.append([psnr_val, ssim_val])
         print("[epoch %d] Test images PSNR: %.4f SSIM: %.4f"
@@ -103,25 +94,6 @@ def test(args, restorer, embedder, device, epoch=-1):
             caption = get_dynamic_label(mode='test', degradation=combine_type[i+1], filename=file_list[j])
             restorer.eval()
             with torch.no_grad():
-                # lq_re = torch.Tensor((np.array(lq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-                # lq_em = transform_resize(lq).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-                # hq = torch.Tensor((np.array(hq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-
-                # starttime = time.time()
-
-                # text_embedding_1,_,text_1 = embedder([combine_type[i+1]],'text_encoder')
-                # text_embedding_2,_, text_2 = embedder(lq_em,'image_encoder')
-                # out_1 = restorer(lq_re, text_embedding_1)
-                # if text_1 != text_2:
-                #     print(text_1, text_2)
-                #     out_2 = restorer(lq_re, text_embedding_2)
-                # else:
-                #     out_2 = out_1
-                
-                # endtime1 = time.time()
-
-                # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
-                #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
                 lq_tensor = torch.from_numpy((np.array(lq)/255).transpose(2, 0, 1)).unsqueeze(0).float().to(device)
                 hq_tensor = torch.from_numpy((np.array(hq)/255).transpose(2, 0, 1)).unsqueeze(0).float().to(device)
 
@@ -134,19 +106,12 @@ def test(args, restorer, embedder, device, epoch=-1):
                 out = restorer(lq_tensor, text_embedding)
 
                 endtime = time.time()
-            # psnr_1 += tensor_metric(hq, out_1, 'PSNR', data_range=1)
-            # ssim_1 += tensor_metric(hq, out_1, 'SSIM', data_range=1)
-            # psnr_2 += tensor_metric(hq, out_2, 'PSNR', data_range=1)
-            # ssim_2 += tensor_metric(hq, out_2, 'SSIM', data_range=1)
-            # print('The ' + file_list[j][:-4] + ' Time:' + str(endtime1 - starttime) + 's.')
             psnr += tensor_metric(hq_tensor, out, "PSNR", data_range=1)
             ssim += tensor_metric(hq_tensor, out, "SSIM", data_range=1)
             print(f"The {file_list[j][:-4]} Time: {endtime - starttime:.3f}s.")
-
-    return psnr / len(file_list), ssim / len(file_list)
-    # return psnr_1 / (len(file_list)*len(combine_type)), ssim_1 / (len(file_list)*len(combine_type)),\
-    #     psnr_2 / (len(file_list)*len(combine_type)), ssim_2 / (len(file_list)*len(combine_type))
-
+    total_files = len(file_list)*len(combine_type)
+    
+    return psnr / len(total_files), ssim / len(total_files)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"

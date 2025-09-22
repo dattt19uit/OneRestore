@@ -244,7 +244,7 @@ def tensor_metric(img, imclean, model, data_range=1):
         elif model == 'MSE':
             SUM += compare_mse(imgclean[i, :, :, :], img_cpu[i, :, :, :])
         elif model == 'SSIM':
-            SUM += compare_ssim(imgclean[i, :, :, :], img_cpu[i, :, :, :], data_range=data_range, multichannel = True)
+            SUM += compare_ssim(imgclean[i, :, :, :], img_cpu[i, :, :, :], data_range=data_range, channel_axis=-1)
             # due to the skimage vision problem, you can replace above line by
             # SUM += compare_ssim(imgclean[i, :, :, :], img_cpu[i, :, :, :], data_range=data_range, channel_axis=-1)
         else:

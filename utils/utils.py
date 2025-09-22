@@ -153,30 +153,70 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def data_process(data, args, device):
-    combine_type = args.degr_type
-    b,n,c,w,h = data.size()
+# def data_process(data, args, device):
+#     combine_type = args.degr_type
+#     b,n,c,w,h = data.size()
 
-    pos_data = data[:,0,:,:,:]
+#     pos_data = data[:,0,:,:,:]
 
-    inp_data = torch.zeros((b,c,w,h))
-    inp_class = []
+#     inp_data = torch.zeros((b,c,w,h))
+#     inp_class = []
 
-    neg_data = torch.zeros((b,n-2,c,w,h))
+#     neg_data = torch.zeros((b,n-2,c,w,h))
 
-    index = np.random.randint(1, n, (b))
+#     index = np.random.randint(1, n, (b))
+#     for i in range(b):
+#         k = 0
+#         for j in range(n):
+#             if j == 0:
+#                 continue
+#             elif index[i] == j:
+#                 inp_class.append(combine_type[index[i]])
+#                 inp_data[i, :, :, :] = data[i, index[i], :, :,:]
+#             else:
+#                 neg_data[i,k,:,:,:] = data[i, j, :, :,:]
+#                 k=k+1
+#     return pos_data.to("cuda" if torch.cuda.is_available() else "cpu"), [inp_data.to("cuda" if torch.cuda.is_available() else "cpu"), inp_class], neg_data.to("cuda" if torch.cuda.is_available() else "cpu")
+
+def data_process(data, caption, args, device):
+    """
+    Args:
+        data: tensor (b, n, c, w, h)  # clear + degradations
+        caption: list[str] or str     # dynamic caption từ HDF5
+        args: config
+        device: torch.device
+    """
+
+    # combine_type = args.degr_type  # vẫn giữ nếu bạn muốn label cố định
+    b, n, c, w, h = data.size()
+
+    pos_data = data[:, 0, :, :, :]  # ảnh clear
+
+    inp_data = torch.zeros((b, c, w, h))
+    inp_class = []  # chứa caption (dynamic text)
+
+    neg_data = torch.zeros((b, n - 2, c, w, h))
+
+    index = np.random.randint(1, n, (b))  # chọn random 1 degradation cho input
     for i in range(b):
         k = 0
         for j in range(n):
             if j == 0:
                 continue
             elif index[i] == j:
-                inp_class.append(combine_type[index[i]])
-                inp_data[i, :, :, :] = data[i, index[i], :, :,:]
+                # thay vì lấy từ combine_type, ta dùng caption động
+                inp_class.append(caption if isinstance(caption, str) else caption[i])
+                inp_data[i, :, :, :] = data[i, index[i], :, :, :]
             else:
-                neg_data[i,k,:,:,:] = data[i, j, :, :,:]
-                k=k+1
-    return pos_data.to("cuda" if torch.cuda.is_available() else "cpu"), [inp_data.to("cuda" if torch.cuda.is_available() else "cpu"), inp_class], neg_data.to("cuda" if torch.cuda.is_available() else "cpu")
+                neg_data[i, k, :, :, :] = data[i, j, :, :, :]
+                k += 1
+
+    return (
+        pos_data.to(device),
+        [inp_data.to(device), inp_class],   # inp_class là dynamic caption
+        neg_data.to(device)
+    )
+
 
 def print_args(argspar):
     print("\nParameter Print")

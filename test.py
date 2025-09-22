@@ -69,56 +69,51 @@ def generate_caption(img_path, category, img_id):
 
 def main(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print('> Model Initialization...')
 
+    # --- 1) Initialize models
+    print('> Model Initialization...')
     embedder = load_embedder_ckpt(device, freeze_model=True, ckpt_name=args.embedder_model_path)
     restorer = load_restore_ckpt(device, freeze_model=True, ckpt_name=args.restore_model_path)
 
     os.makedirs(args.output, exist_ok=True)
 
-    files = [f for f in os.listdir(args.input) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    files = os.listdir(args.input)
     time_record = []
-    results = {}
 
-    # set this flag (from CLI or default). If True, the caption embedding will be used for restoration.
-    use_caption_embedding = getattr(args, "use_caption_embedding", False)
-
-    for fname in files:
-        img_path = os.path.join(args.input, fname)
-        lq = Image.open(img_path).convert("RGB")
+    for i in files:
+        lq_path = os.path.join(args.input, i)
+        lq = Image.open(lq_path)
 
         with torch.no_grad():
-            # prepare tensors
-            lq_re = torch.Tensor((np.array(lq) / 255.0).transpose(2, 0, 1)).unsqueeze(0).to(device)
+            # --- 2) Preprocess
+            lq_re = torch.Tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
             lq_em = transform_resize(lq).unsqueeze(0).to(device)
 
             start_time = time.time()
 
-            # --- 1) Image encoder: get embedding and predicted (static) category from image
-            text_embedding_img, _, [pred_category_from_image] = embedder(lq_em, 'image_encoder')
-            print(f'Predicted static category (from image): {pred_category_from_image}')
+            # --- 3) Decide embedding source
+            if args.prompt is None:
+                # Step 1: image encoder estimates degradation
+                text_embedding_img, _, [pred_category_from_image] = embedder(lq_em, 'image_encoder')
+                print(f'Estimated degradation (from image): {pred_category_from_image}')
 
-            # --- 2) Generate a dynamic caption (LLM) explaining predicted category
-            caption = generate_caption(img_path, pred_category_from_image, fname)
-            caption = caption if isinstance(caption, str) else (caption.get("caption") if isinstance(caption, dict) else str(caption))
-            print(f'Generated caption: {caption}')
+                # Step 2: generate caption dynamically
+                caption = generate_caption(lq_path, pred_category_from_image, i)
+                print(f'Generated caption: {caption}')
 
-            # --- 3) Decide which embedding to use for the restorer
-            if use_caption_embedding and caption:
-                # If you explicitly want to use caption text as prompt for restoration:
+                # Step 3: encode caption as dynamic prompt
                 text_embedding_caption, _, [pred_category_from_caption] = embedder([caption], 'text_encoder')
                 used_text_embedding = text_embedding_caption
                 used_category_label = pred_category_from_caption
                 print(f'Using caption-derived embedding; caption predicted category: {pred_category_from_caption}')
             else:
-                # Default: use image-derived embedding (do NOT overwrite pred_category)
-                used_text_embedding = text_embedding_img
-                used_category_label = pred_category_from_image
-                if use_caption_embedding:
-                    # caption was empty / failed — fallback
-                    print('Caption was empty/failure; falling back to image-derived embedding.')
+                # User provided a manual prompt
+                text_embedding_prompt, _, [pred_category_from_prompt] = embedder([args.prompt], 'text_encoder')
+                used_text_embedding = text_embedding_prompt
+                used_category_label = pred_category_from_prompt
+                print(f'Using user-provided prompt: "{args.prompt}" (category: {pred_category_from_prompt})')
 
-            # --- 4) Restore image using the chosen embedding
+            # --- 4) Run restoration
             out = restorer(lq_re, used_text_embedding)
 
             run_time = time.time() - start_time
@@ -127,26 +122,10 @@ def main(args):
             if args.concat:
                 out = torch.cat((lq_re, out), dim=3)
 
-            # save restored image
-            out_path = os.path.join(args.output, fname)
-            imwrite(out, out_path, value_range=(0, 1))
-            print(f'✔ {fname} processed in {run_time:.4f}s -> {out_path}')
+            imwrite(out, os.path.join(args.output, i), value_range=(0, 1))
+            print(f'{i} → Done. Running Time: {run_time:.4f}s.')
 
-            # store results (preserve both predictions so you can audit)
-            results[fname] = {
-                "pred_category_from_image": pred_category_from_image,
-                "used_category_label": used_category_label,
-                "caption": caption,
-                "runtime_sec": round(run_time, 4)
-            }
-
-    # # write captions/metadata to JSON
-    # json_out = os.path.join(args.output, "captions_and_meta.json")
-    # with open(json_out, "w", encoding="utf-8") as f:
-    #     json.dump(results, f, indent=2, ensure_ascii=False)
-
-    print(f"\n✅ Captions and metadata saved to {json_out}")
-    print(f"✅ Average processing time: {np.mean(time_record):.4f}s")
+    print(f'Average time is {np.mean(time_record):.4f}s')
             
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"

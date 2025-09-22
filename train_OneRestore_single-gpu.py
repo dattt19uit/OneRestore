@@ -148,46 +148,6 @@ def test(args, restorer, embedder, device, epoch=-1):
     #     psnr_2 / (len(file_list)*len(combine_type)), ssim_2 / (len(file_list)*len(combine_type))
 
 
-import json
-
-def test(args, restorer, embedder, device, epoch=-1):
-    psnr, ssim = 0, 0
-    os.makedirs(args.output, exist_ok=True)
-
-
-    file_list = os.listdir(f"{args.test_input}/LQ/")  # thư mục ảnh degraded
-    for fname in file_list:
-        hq = Image.open(f"{args.test_input}/HQ/{fname}")
-        lq = Image.open(f"{args.test_input}/LQ/{fname}")
-        caption = captions[fname]  # lấy caption động theo tên ảnh
-
-        restorer.eval()
-        with torch.no_grad():
-            lq_tensor = torch.tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
-            hq_tensor = torch.tensor((np.array(hq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
-
-            starttime = time.time()
-
-            # dynamic caption → embedding
-            text_embedding, _, _ = embedder([caption], "text_encoder")
-
-            # restore
-            out = restorer(lq_tensor, text_embedding)
-
-            endtime = time.time()
-
-            imwrite(
-                torch.cat((lq_tensor, out, hq_tensor), dim=3),
-                os.path.join(args.output, f"{fname[:-4]}_{epoch}.png"),
-                range=(0, 1)
-            )
-
-        psnr += tensor_metric(hq_tensor, out, "PSNR", data_range=1)
-        ssim += tensor_metric(hq_tensor, out, "SSIM", data_range=1)
-        print(f"The {fname[:-4]} Time: {endtime - starttime:.3f}s.")
-
-    return psnr / len(file_list), ssim / len(file_list)
-
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 if __name__ == '__main__':

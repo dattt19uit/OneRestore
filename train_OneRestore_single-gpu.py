@@ -5,6 +5,7 @@ from torchvision.utils import save_image as imwrite
 import numpy as np
 from torchvision import transforms
 from makedataset import Dataset
+from utils.dynamic_text import get_dynamic_label
 from utils.utils import print_args, load_restore_ckpt_with_optim, load_embedder_ckpt, adjust_learning_rate, data_process, tensor_metric, load_excel, save_checkpoint
 from model.loss import Total_loss
 
@@ -89,45 +90,62 @@ def train(restorer, embedder, optimizer, loss, cur_epoch, args, dataset, device)
         #     psnr_val, ssim_val
         # )
 
-# def test(args, restorer, embedder, device, epoch=-1):
-#     combine_type = args.degr_type
-#     psnr_1, psnr_2, ssim_1, ssim_2 = 0, 0, 0, 0
-#     os.makedirs(args.output,exist_ok=True)
+def test(args, restorer, embedder, device, epoch=-1):
+    combine_type = args.degr_type
+    psnr, ssim = 0, 0
+    os.makedirs(args.output,exist_ok=True)
 
-#     for i in range(len(combine_type)-1):
-#         file_list =  os.listdir(f'{args.test_input}/{combine_type[i+1]}/')
-#         for j in range(len(file_list)):
-#             hq = Image.open(f'{args.test_input}/{combine_type[0]}/{file_list[j]}')
-#             lq = Image.open(f'{args.test_input}/{combine_type[i+1]}/{file_list[j]}')
-#             restorer.eval()
-#             with torch.no_grad():
-#                 lq_re = torch.Tensor((np.array(lq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-#                 lq_em = transform_resize(lq).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
-#                 hq = torch.Tensor((np.array(hq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
+    for i in range(len(combine_type)-1):
+        file_list =  os.listdir(f'{args.test_input}/{combine_type[i+1]}/')
+        for j in range(len(file_list)):
+            hq = Image.open(f'{args.test_input}/{combine_type[0]}/{file_list[j]}')
+            lq = Image.open(f'{args.test_input}/{combine_type[i+1]}/{file_list[j]}')
+            caption = get_dynamic_label(mode='test', degradation=combine_type[i+1], filename=file_list[j])
+            restorer.eval()
+            with torch.no_grad():
+                # lq_re = torch.Tensor((np.array(lq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
+                # lq_em = transform_resize(lq).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
+                # hq = torch.Tensor((np.array(hq)/255).transpose(2, 0, 1)).unsqueeze(0).to("cuda" if torch.cuda.is_available() else "cpu")
 
-#                 starttime = time.time()
+                # starttime = time.time()
 
-#                 text_embedding_1,_,text_1 = embedder([combine_type[i+1]],'text_encoder')
-#                 text_embedding_2,_, text_2 = embedder(lq_em,'image_encoder')
-#                 out_1 = restorer(lq_re, text_embedding_1)
-#                 if text_1 != text_2:
-#                     print(text_1, text_2)
-#                     out_2 = restorer(lq_re, text_embedding_2)
-#                 else:
-#                     out_2 = out_1
+                # text_embedding_1,_,text_1 = embedder([combine_type[i+1]],'text_encoder')
+                # text_embedding_2,_, text_2 = embedder(lq_em,'image_encoder')
+                # out_1 = restorer(lq_re, text_embedding_1)
+                # if text_1 != text_2:
+                #     print(text_1, text_2)
+                #     out_2 = restorer(lq_re, text_embedding_2)
+                # else:
+                #     out_2 = out_1
                 
-#                 endtime1 = time.time()
+                # endtime1 = time.time()
 
-#                 imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
-#                     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
-#             psnr_1 += tensor_metric(hq, out_1, 'PSNR', data_range=1)
-#             ssim_1 += tensor_metric(hq, out_1, 'SSIM', data_range=1)
-#             psnr_2 += tensor_metric(hq, out_2, 'PSNR', data_range=1)
-#             ssim_2 += tensor_metric(hq, out_2, 'SSIM', data_range=1)
-#             print('The ' + file_list[j][:-4] + ' Time:' + str(endtime1 - starttime) + 's.')
+                # imwrite(torch.cat((lq_re, out_1, out_2, hq), dim=3), args.output \
+                #     + file_list[j][:-4] + '_' + str(epoch) + '_' + combine_type[i+1] + '.png', range=(0, 1))
+                lq_tensor = torch.tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
+                hq_tensor = torch.tensor((np.array(hq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
 
-#     return psnr_1 / (len(file_list)*len(combine_type)), ssim_1 / (len(file_list)*len(combine_type)),\
-#         psnr_2 / (len(file_list)*len(combine_type)), ssim_2 / (len(file_list)*len(combine_type))
+                starttime = time.time()
+
+                # dynamic caption → embedding
+                text_embedding, _, _ = embedder([caption], "text_encoder")
+
+                # restore
+                out = restorer(lq_tensor, text_embedding)
+
+                endtime = time.time()
+            # psnr_1 += tensor_metric(hq, out_1, 'PSNR', data_range=1)
+            # ssim_1 += tensor_metric(hq, out_1, 'SSIM', data_range=1)
+            # psnr_2 += tensor_metric(hq, out_2, 'PSNR', data_range=1)
+            # ssim_2 += tensor_metric(hq, out_2, 'SSIM', data_range=1)
+            # print('The ' + file_list[j][:-4] + ' Time:' + str(endtime1 - starttime) + 's.')
+            psnr += tensor_metric(hq_tensor, out, "PSNR", data_range=1)
+            ssim += tensor_metric(hq_tensor, out, "SSIM", data_range=1)
+            print(f"The {file_list[j][:-4]} Time: {endtime - starttime:.3f}s.")
+
+    return psnr / len(file_list), ssim / len(file_list)
+    # return psnr_1 / (len(file_list)*len(combine_type)), ssim_1 / (len(file_list)*len(combine_type)),\
+    #     psnr_2 / (len(file_list)*len(combine_type)), ssim_2 / (len(file_list)*len(combine_type))
 
 
 import json
@@ -136,9 +154,6 @@ def test(args, restorer, embedder, device, epoch=-1):
     psnr, ssim = 0, 0
     os.makedirs(args.output, exist_ok=True)
 
-    # load captions động
-    with open(args.test_caption, "r") as f:
-        captions = json.load(f)
 
     file_list = os.listdir(f"{args.test_input}/LQ/")  # thư mục ảnh degraded
     for fname in file_list:

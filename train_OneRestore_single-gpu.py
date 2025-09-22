@@ -111,7 +111,7 @@ def test(args, restorer, embedder, device, epoch=-1):
             print(f"The {file_list[j][:-4]} Time: {endtime - starttime:.3f}s.")
     total_files = len(file_list)*len(combine_type)
     
-    return psnr / len(total_files), ssim / len(total_files)
+    return psnr / total_files, ssim / total_files
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"

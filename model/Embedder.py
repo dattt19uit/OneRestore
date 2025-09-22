@@ -255,38 +255,38 @@ class Embedder(nn.Module):
     def encode_text(self, captions):
         return self.caption_encoder(captions)
 
-    def text_encoder_forward(self, text):
-        """
-        Encode text bằng CLIP
-        Args:
-            text (str hoặc list[str]): caption động
-        Returns:
-            out_embedding: torch.Tensor (bs, out_dim)
-            num_type: dummy tensor (giữ format)
-            text_type: list[str], caption gốc
-        """
-        if isinstance(text, str):
-            text = [text]   # đảm bảo input là list
+    # def text_encoder_forward(self, text):
+    #     """
+    #     Encode text bằng CLIP
+    #     Args:
+    #         text (str hoặc list[str]): caption động
+    #     Returns:
+    #         out_embedding: torch.Tensor (bs, out_dim)
+    #         num_type: dummy tensor (giữ format)
+    #         text_type: list[str], caption gốc
+    #     """
+    #     if isinstance(text, str):
+    #         text = [text]   # đảm bảo input là list
 
-        bs = len(text)
+    #     bs = len(text)
 
-        # Tokenize
-        inputs = self.tokenizer(
-            text, padding=True, truncation=True, return_tensors="pt"
-        ).to(self.device)
+    #     # Tokenize
+    #     inputs = self.tokenizer(
+    #         text, padding=True, truncation=True, return_tensors="pt"
+    #     ).to(self.device)
 
-        # CLIP forward
-        with torch.no_grad():
-            outputs = self.clip.get_text_features(**inputs)  # (bs, projection_dim)
+    #     # CLIP forward
+    #     with torch.no_grad():
+    #         outputs = self.clip.get_text_features(**inputs)  # (bs, projection_dim)
 
-        # Resize dim nếu cần
-        out_embedding = self.proj(outputs)  # (bs, out_dim)
+    #     # Resize dim nếu cần
+    #     out_embedding = self.proj(outputs)  # (bs, out_dim)
 
-        # Giữ cấu trúc trả về giống code cũ
-        num_type = torch.arange(bs, device=self.device)  # dummy index
-        text_type = text
+    #     # Giữ cấu trúc trả về giống code cũ
+    #     num_type = torch.arange(bs, device=self.device)  # dummy index
+    #     text_type = text
 
-        return out_embedding, num_type, text_type
+    #     return out_embedding, num_type, text_type
     
     def contrastive_loss(self, img_emb, txt_emb):
         img_emb = F.normalize(img_emb, dim=-1)

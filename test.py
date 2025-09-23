@@ -2,24 +2,92 @@ import os, time, argparse
 from PIL import Image
 import numpy as np
 from openai import OpenAI
-
-
+import joblib
+from transformers import CLIPProcessor, CLIPModel
 import torch
 from torchvision import transforms
-
 from torchvision.utils import save_image as imwrite
 from utils.utils import print_args, load_restore_ckpt, load_embedder_ckpt
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+import base64
 
 transform_resize = transforms.Compose([
         transforms.Resize([224,224]),
         transforms.ToTensor()
         ]) 
 
-import base64
+device_clip = "cuda" if torch.cuda.is_available() else "cpu"
+clip_model_id = "openai/clip-vit-base-patch32"
+clip_model = CLIPModel.from_pretrained(clip_model_id).to(device_clip)
+clip_processor = CLIPProcessor.from_pretrained(clip_model_id)
 
 def encode_image(image_path):
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
+
+def extract_feature(img_path):
+    """Trích vector đặc trưng từ ảnh bằng CLIP"""
+    image = Image.open(img_path).convert("RGB")
+    inputs = clip_processor(images=image, return_tensors="pt").to(device_clip)
+    with torch.no_grad():
+        features = clip_model.get_image_features(**inputs)
+    return features.cpu().numpy().flatten()
+
+# ========================
+# Dataset + Classifier
+# ========================
+def build_dataset(root_dir):
+    """Trích toàn bộ features cho dataset"""
+    X, y, classes = [], [], sorted(os.listdir(root_dir))
+    for label, cls in enumerate(classes):
+        cls_dir = os.path.join(root_dir, cls)
+        for img_file in os.listdir(cls_dir):
+            img_path = os.path.join(cls_dir, img_file)
+            feat = extract_feature(img_path)
+            X.append(feat)
+            y.append(label)
+    return np.array(X), np.array(y), classes
+
+
+def load_or_train_classifier(train_dir, test_dir, model_path="clip_degradation_classifier.pkl"):
+    """Nếu có .pkl thì load, ngược lại train mới, nhưng luôn in classification_report trên test set"""
+    if os.path.exists(model_path):
+        print(f"✅ Found existing model at {model_path}, loading...")
+        clf, classes = joblib.load(model_path)
+
+        # Dù load sẵn thì vẫn evaluate lại
+        _, _, classes_test = build_dataset(test_dir)
+        X_test, y_test, _ = build_dataset(test_dir)
+        y_pred = clf.predict(X_test)
+        print(classification_report(y_test, y_pred, target_names=classes))
+    else:
+        print("⚡ Training new model...")
+        X_train, y_train, classes = build_dataset(train_dir)
+        X_test, y_test, _ = build_dataset(test_dir)
+
+        print("Train size:", X_train.shape, " Test size:", X_test.shape)
+
+        clf = LogisticRegression(max_iter=2000)
+        clf.fit(X_train, y_train)
+
+        # Save model
+        joblib.dump((clf, classes), model_path)
+
+        # Evaluate
+        y_pred = clf.predict(X_test)
+        print(classification_report(y_test, y_pred, target_names=classes))
+
+    return clf, classes
+
+
+def predict_image(img_path, clf, classes):
+    """Dự đoán class degradation cho ảnh bất kỳ"""
+    feat = extract_feature(img_path)
+    pred = clf.predict([feat])[0]
+    return classes[pred]
+
+
 
 def generate_caption(img_path, category, img_id):
     """
@@ -67,6 +135,9 @@ def generate_caption(img_path, category, img_id):
     return caption
 
 
+# ========================
+# Main pipeline
+# ========================
 def main(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -75,8 +146,12 @@ def main(args):
     embedder = load_embedder_ckpt(device, freeze_model=True, ckpt_name=args.embedder_model_path)
     restorer = load_restore_ckpt(device, freeze_model=True, ckpt_name=args.restore_model_path)
 
-    os.makedirs(args.output, exist_ok=True)
+    # --- 2) Load or train degradation classifier
+    clf, classes = load_or_train_classifier(
+        args.train_dir, args.test_dir, args.clip_classifier_path
+    )
 
+    os.makedirs(args.output, exist_ok=True)
     files = os.listdir(args.input)
     time_record = []
 
@@ -85,35 +160,32 @@ def main(args):
         lq = Image.open(lq_path)
 
         with torch.no_grad():
-            # --- 2) Preprocess
+            # --- 3) Preprocess
             lq_re = torch.Tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
             lq_em = transform_resize(lq).unsqueeze(0).to(device)
 
             start_time = time.time()
 
-            # --- 3) Decide embedding source
+            # --- 4) Decide embedding source
             if args.prompt is None:
-                # Step 1: image encoder estimates degradation
-                text_embedding_img, _, [pred_category_from_image] = embedder(lq_em, 'image_encoder')
+                # Step 1: predict degradation category bằng CLIP+LogReg
+                pred_category_from_image = predict_image(lq_path, clf, classes)
                 print(f'Estimated degradation (from image): {pred_category_from_image}')
 
-                # Step 2: generate caption dynamically
+                # Step 2: generate caption động
                 caption = generate_caption(lq_path, pred_category_from_image, i)
                 print(f'Generated caption: {caption}')
 
-                # Step 3: encode caption as dynamic prompt
-                text_embedding_caption, _, [pred_category_from_caption] = embedder([caption], 'text_encoder')
+                # Step 3: encode caption thành text embedding
+                text_embedding_caption = embedder([caption], 'text_encoder')
                 used_text_embedding = text_embedding_caption
-                used_category_label = pred_category_from_caption
-                print(f'Using caption-derived embedding; caption predicted category: {pred_category_from_caption}')
             else:
                 # User provided a manual prompt
                 text_embedding_prompt, _, [pred_category_from_prompt] = embedder([args.prompt], 'text_encoder')
                 used_text_embedding = text_embedding_prompt
-                used_category_label = pred_category_from_prompt
                 print(f'Using user-provided prompt: "{args.prompt}" (category: {pred_category_from_prompt})')
 
-            # --- 4) Run restoration
+            # --- 5) Run restoration
             out = restorer(lq_re, used_text_embedding)
 
             run_time = time.time() - start_time

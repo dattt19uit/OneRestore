@@ -205,7 +205,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description = "OneRestore Running")
-
+    
+    parser.add_argument("--train_dir", type=str, required=True, help="Training dataset folder")
+    parser.add_argument("--test_dir", type=str, required=True, help="Testing dataset folder")
+    parser.add_argument("--clip_classifier_path", type=str, default="clip_degradation_classifier.pkl", help="Path to save/load classifier")
+    
     # load model
     parser.add_argument("--embedder-model-path", type=str, default = "./ckpts/embedder_model.tar", help = 'embedder model path')
     parser.add_argument("--restore-model-path", type=str, default = "./ckpts/onerestore_cdd-11.tar", help = 'restore model path')

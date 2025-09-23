@@ -177,7 +177,7 @@ def main(args):
                 print(f'Generated caption: {caption}')
 
                 # Step 3: encode caption thành text embedding
-                text_embedding_caption = embedder([caption], 'text_encoder')
+                text_embedding_caption, _, _ = embedder([caption], 'text_encoder')
                 used_text_embedding = text_embedding_caption
             else:
                 # User provided a manual prompt

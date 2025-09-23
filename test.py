@@ -161,7 +161,7 @@ def main(args):
 
         with torch.no_grad():
             # --- 3) Preprocess
-            lq_re = torch.Tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
+            # lq_re = torch.Tensor((np.array(lq) / 255).transpose(2, 0, 1)).unsqueeze(0).to(device)
             lq_em = transform_resize(lq).unsqueeze(0).to(device)
 
             start_time = time.time()
@@ -186,13 +186,13 @@ def main(args):
                 print(f'Using user-provided prompt: "{args.prompt}" (category: {pred_category_from_prompt})')
 
             # --- 5) Run restoration
-            out = restorer(lq_re, used_text_embedding)
+            out = restorer(lq, used_text_embedding)
 
             run_time = time.time() - start_time
             time_record.append(run_time)
 
             if args.concat:
-                out = torch.cat((lq_re, out), dim=3)
+                out = torch.cat((lq, out), dim=3)
 
             imwrite(out, os.path.join(args.output, i), value_range=(0, 1))
             print(f'{i} → Done. Running Time: {run_time:.4f}s.')
